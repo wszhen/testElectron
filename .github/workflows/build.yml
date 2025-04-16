@@ -6,12 +6,8 @@ on:
       - 'v*'
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [macos-latest, windows-latest]
-
+  build-mac:
+    runs-on: macos-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -24,30 +20,61 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build Electron app
+      - name: Build Electron app for Mac
         run: npm run dist
 
-      - name: Upload artifacts
+      - name: Upload Mac artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: electron-build-${{ matrix.os }}
-          path: dist/
+          name: mac-build
+          path: dist/*
+
+  build-win:
+    runs-on: windows-latest
+    needs: build-mac
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Electron app for Windows
+        run: npm run dist
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: win-build
+          path: dist/*
 
   release:
-    needs: build
+    needs: [build-mac, build-win]
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download all build artifacts
+      - name: Download Mac artifacts
         uses: actions/download-artifact@v3
         with:
-          path: artifacts
+          name: mac-build
+          path: artifacts/mac
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: win-build
+          path: artifacts/win
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            artifacts/electron-build-macos-latest/*
-            artifacts/electron-build-windows-latest/*
+            artifacts/mac/*
+            artifacts/win/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
